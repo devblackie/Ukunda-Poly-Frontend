@@ -2,9 +2,12 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-const EnrollNowButton = () => {
+const EnrollNowButton = ({onClick}) => {
   return (
-    <button className="cursor-pointer group relative bg-white hover:bg-zinc-300 text-black font-semibold text-sm px-6 py-3 rounded-full transition-all duration-200 ease-in-out shadow hover:shadow-lg w-40 h-12">
+    <button
+      onClick={onClick}
+      className=" cursor-pointer group relative select-none  bg-gradient-to-tr from-yellow-600 to-yellow-400 rounded-full py-3 px-6 text-center align-middle font-sans text-xs font-semibold uppercase text-black shadow-md shadow-yellow-500/20 transition-all duration-200 ease-in-out hover:shadow-lg hover:shadow-yellow-500/40 active:opacity-[0.85] disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
+    >
       <div className="relative flex items-center justify-center gap-2">
         <span className="relative inline-block overflow-hidden">
           <span className="block transition-transform duration-300 group-hover:-translate-y-full">

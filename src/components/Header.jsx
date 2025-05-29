@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AppName from "../data/AppName";
-import logo from "../assets/logo.png"; // Adjust the path as necessary
+import logo from "../assets/logo.jpg"; // Adjust the path as necessary
 import { motion } from "framer-motion";
 import NavigationData from "../data/NavigationData";
 import { Link, useLocation, useNavigate } from "react-router-dom";
