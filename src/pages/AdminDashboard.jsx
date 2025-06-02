@@ -3,6 +3,7 @@ import axios from "axios";
 import { motion } from "framer-motion";
 import AdminIllustration from "../assets/illustration/TeachingIllustration.svg";
 import BASE_API_URL from "../config/config";
+import { SearchInput } from "../components/ui/InputComponents";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -345,28 +346,13 @@ const AdminDashboard = () => {
               </h2>
 
               <div className="mb-4 flex justify-between items-center">
-                <div className="relative w-1/2">
-                  <input
-                    type="text"
-                    value={userSearch}
+              
+                <SearchInput value={userSearch}
                     onChange={(e) => {
                       setUserSearch(e.target.value);
                       setUserPage(1);
                     }}
-                    placeholder="Search by name or email"
-                    className="w-full p-3 pl-10 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  />
-                  <svg
-                    className="absolute left-3 top-3 h-5 w-5 text-gray-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    height="24px"
-                    viewBox="0 -960 960 960"
-                    width="24px"
-                    fill="currentColor"
-                  >
-                    <path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z" />
-                  </svg>
-                </div>
+                    placeholder="Search by name or email" />
                 {selectedUsers.length > 0 && (
                   <motion.button
                     onClick={() =>
@@ -564,28 +550,15 @@ const AdminDashboard = () => {
                 Manage Content
               </h2>
               <div className="mb-4 flex justify-between items-center">
-                <div className="relative w-1/2">
-                  <input
-                    type="text"
-                    value={contentSearch}
-                    onChange={(e) => {
-                      setContentSearch(e.target.value);
-                      setContentPage(1);
-                    }}
-                    placeholder="Search by title or creator"
-                    className="w-full p-3 pl-10 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  />
-                  <svg
-                    className="absolute left-3 top-3 h-5 w-5 text-gray-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    height="24px"
-                    viewBox="0 -960 960 960"
-                    width="24px"
-                    fill="currentColor"
-                  >
-                    <path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z" />
-                  </svg>
-                </div>
+               
+                <SearchInput
+                  value={contentSearch}
+                  onChange={(e) => {
+                    setContentSearch(e.target.value);
+                    setContentPage(1);
+                  }}
+                  placeholder="Search by title or creator"
+                />
                 {selectedContent.length > 0 && (
                   <motion.button
                     onClick={() =>
