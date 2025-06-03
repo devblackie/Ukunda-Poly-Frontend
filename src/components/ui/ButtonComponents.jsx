@@ -6,7 +6,7 @@ const EnrollNowButton = ({onClick}) => {
   return (
     <button
       onClick={onClick}
-      className=" cursor-pointer group relative select-none  bg-gradient-to-tr from-yellow-600 to-yellow-400 rounded-full py-3 px-6 text-center align-middle font-sans text-xs font-semibold uppercase text-black shadow-md shadow-yellow-500/20 transition-all duration-200 ease-in-out hover:shadow-lg hover:shadow-yellow-500/40 active:opacity-[0.85] disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
+      className=" cursor-pointer group relative select-none  bg-gradient-to-tr from-yellow-600 to-yellow-400 rounded-full py-3 px-6 text-center align-middle  text-xs font-semibold uppercase text-black shadow-md shadow-yellow-500/20 transition-all duration-200 ease-in-out hover:shadow-lg hover:shadow-yellow-500/40 active:opacity-[0.85] disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
     >
       <div className="relative flex items-center justify-center gap-2">
         <span className="relative inline-block overflow-hidden">

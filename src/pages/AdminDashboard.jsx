@@ -1,22 +1,32 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import AdminIllustration from "../assets/illustration/TeachingIllustration.svg";
 import BASE_API_URL from "../config/config";
+import {
+  UserSvg,
+  ContentSvg,
+  HistorySvg,
+  RoleSvg,
+} from "../components/ui/SvgComponents";
 import { SearchInput } from "../components/ui/InputComponents";
+import { ToggleButton } from "../components/ui/ButtonComponents";
 
 const ITEMS_PER_PAGE = 5;
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [content, setContent] = useState([]);
+  const [deletedContent, setDeletedContent] = useState([]);
+  const [roleChanges, setRoleChanges] = useState([]);
+  const [selectedContent, setSelectedContent] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [modal, setModal] = useState({ isOpen: false, type: "", ids: [] });
+  const [modal, setModal] = useState({ isOpen: false, type: "", data: null });
   const [selectedUsers, setSelectedUsers] = useState([]);
-  const [selectedContent, setSelectedContent] = useState([]);
+  const [selectedContentIds, setSelectedContentIds] = useState([]);
   const [userSearch, setUserSearch] = useState("");
   const [contentSearch, setContentSearch] = useState("");
   const [userSort, setUserSort] = useState({ field: "name", direction: "asc" });
@@ -26,6 +36,53 @@ const AdminDashboard = () => {
   });
   const [userPage, setUserPage] = useState(1);
   const [contentPage, setContentPage] = useState(1);
+  const [deletedContentPage, setDeletedContentPage] = useState(1);
+  const [roleChangesPage, setRoleChangesPage] = useState(1);
+  const [activeTab, setActiveTab] = useState("users");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     setIsLoading(true);
+  //     setError("");
+  //     try {
+  //       const token = localStorage.getItem("token");
+  //       const [
+  //         usersResponse,
+  //         contentResponse,
+  //         deletedContentResponse,
+  //         roleChangesResponse,
+  //         meResponse,
+  //       ] = await Promise.all([
+  //         axios.get(`${BASE_API_URL}/api/admin/users`, {
+  //           headers: { Authorization: `Bearer ${token}` },
+  //         }),
+  //         axios.get(`${BASE_API_URL}/api/admin/content`, {
+  //           headers: { Authorization: `Bearer ${token}` },
+  //         }),
+  //         axios.get(`${BASE_API_URL}/api/admin/deleted-content`, {
+  //           headers: { Authorization: `Bearer ${token}` },
+  //         }),
+  //         axios.get(`${BASE_API_URL}/api/admin/role-changes`, {
+  //           headers: { Authorization: `Bearer ${token}` },
+  //         }),
+  //         axios.get(`${BASE_API_URL}/api/me`, {
+  //           headers: { Authorization: `Bearer ${token}` },
+  //         }),
+  //       ]);
+  //       setUsers(usersResponse.data);
+  //       setContent(contentResponse.data);
+  //       setDeletedContent(deletedContentResponse.data);
+  //       setRoleChanges(roleChangesResponse.data);
+  //       setCurrentUserId(meResponse.data.user.userId);
+  //     } catch (err) {
+  //       setError(err.response?.data?.error || "Failed to fetch data.");
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
+  //   fetchData();
+  // }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,34 +90,68 @@ const AdminDashboard = () => {
       setError("");
       try {
         const token = localStorage.getItem("token");
-        const [usersResponse, contentResponse, meResponse] = await Promise.all([
+        const requests = [
           axios.get(`${BASE_API_URL}/api/admin/users`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }),
           axios.get(`${BASE_API_URL}/api/admin/content`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }),
+          axios
+            .get(`${BASE_API_URL}/api/admin/deleted-content`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .catch(() => ({ data: [] })),
+          axios
+            .get(`${BASE_API_URL}/api/admin/role-changes`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .catch(() => ({ data: [] })),
           axios.get(`${BASE_API_URL}/api/me`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-        ]);
+        ];
+        const [
+          usersResponse,
+          contentResponse,
+          deletedContentResponse,
+          roleChangesResponse,
+          meResponse,
+        ] = await Promise.all(requests);
         setUsers(usersResponse.data);
         setContent(contentResponse.data);
+        setDeletedContent(deletedContentResponse.data);
+        setRoleChanges(roleChangesResponse.data); // Keep populated data
         setCurrentUserId(meResponse.data.user.userId);
       } catch (err) {
-        setError(
-          err.response?.data?.error || "Failed to fetch data. Please try again."
-        );
+        setError(err.response?.data?.error || "Failed to fetch data.");
+        console.error("Fetch error:", err);
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
   }, []);
+
+  const handleViewContent = async (contentId) => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${BASE_API_URL}/api/admin/content/${contentId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setSelectedContent(response.data);
+      setModal({ isOpen: true, type: "viewContent", data: null });
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to fetch content details.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleDeleteUser = async (userIds) => {
     setActionLoading((prev) => ({
@@ -69,12 +160,11 @@ const AdminDashboard = () => {
     }));
     setError("");
     try {
+      const token = localStorage.getItem("token");
       await Promise.all(
         userIds.map((userId) =>
           axios.delete(`${BASE_API_URL}/api/admin/users/${userId}`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           })
         )
       );
@@ -82,13 +172,13 @@ const AdminDashboard = () => {
       setSelectedUsers(selectedUsers.filter((id) => !userIds.includes(id)));
       alert(`${userIds.length} user(s) deleted successfully`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to delete user(s)");
+      setError(err.response?.data?.error || "Failed to delete user(s).");
     } finally {
       setActionLoading((prev) => ({
         ...prev,
         ...Object.fromEntries(userIds.map((id) => [`user-${id}`, false])),
       }));
-      setModal({ isOpen: false, type: "", ids: [] });
+      setModal({ isOpen: false, type: "", data: null });
     }
   };
 
@@ -96,21 +186,20 @@ const AdminDashboard = () => {
     setActionLoading((prev) => ({ ...prev, [`role-${userId}`]: true }));
     setError("");
     try {
+      const token = localStorage.getItem("token");
       const response = await axios.put(
         `${BASE_API_URL}/api/admin/users/${userId}/role`,
         { role: newRole },
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setUsers(
         users.map((user) =>
-          user.userId === userId ? response.data.user : user
+          user.userId === userId ? { ...user, role: newRole } : user
         )
       );
-      alert("Role updated successfully");
+      alert("Role updated successfully.");
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to update role");
+      setError(err.response?.data?.error || "Failed to update role.");
     } finally {
       setActionLoading((prev) => ({ ...prev, [`role-${userId}`]: false }));
     }
@@ -123,30 +212,29 @@ const AdminDashboard = () => {
     }));
     setError("");
     try {
+      const token = localStorage.getItem("token");
       await Promise.all(
         contentIds.map((contentId) =>
           axios.delete(`${BASE_API_URL}/api/admin/content/${contentId}`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           })
         )
       );
       setContent(
         content.filter((item) => !contentIds.includes(item.contentId))
       );
-      setSelectedContent(
-        selectedContent.filter((id) => !contentIds.includes(id))
+      setSelectedContentIds(
+        selectedContentIds.filter((id) => !contentIds.includes(id))
       );
-      alert(`${contentIds.length} content item(s) deleted successfully`);
+      alert(`${contentIds.length} content item(s) deleted successfully.`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to delete content");
+      setError(err.response?.data?.error || "Failed to delete content.");
     } finally {
       setActionLoading((prev) => ({
         ...prev,
         ...Object.fromEntries(contentIds.map((id) => [`content-${id}`, false])),
       }));
-      setModal({ isOpen: false, type: "", ids: [] });
+      setModal({ isOpen: false, type: "", data: null });
     }
   };
 
@@ -203,543 +291,842 @@ const AdminDashboard = () => {
     (contentPage - 1) * ITEMS_PER_PAGE,
     contentPage * ITEMS_PER_PAGE
   );
+  const paginatedDeletedContent = deletedContent.slice(
+    (deletedContentPage - 1) * ITEMS_PER_PAGE,
+    deletedContentPage * ITEMS_PER_PAGE
+  );
+  const paginatedRoleChanges = roleChanges.slice(
+    (roleChangesPage - 1) * ITEMS_PER_PAGE,
+    roleChangesPage * ITEMS_PER_PAGE
+  );
 
   const totalUserPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
   const totalContentPages = Math.ceil(filteredContent.length / ITEMS_PER_PAGE);
+  const totalDeletedContentPages = Math.ceil(
+    deletedContent.length / ITEMS_PER_PAGE
+  );
+  const totalRoleChangesPages = Math.ceil(roleChanges.length / ITEMS_PER_PAGE);
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarOpen((prev) => !prev);
+  }, []);
 
   const Pagination = ({ currentPage, totalPages, setPage }) => (
-    <div className="flex justify-center space-x-2 mt-4">
-      <button
+    <div className="flex justify-center items-center space-x-2 mt-6">
+      <motion.button
         onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
         disabled={currentPage === 1}
-        className="px-3 py-1 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+        whileHover={{ scale: 1.05 }}
+        className="px-3 py-1 bg-gradient-to-tr from-indigo-600 to-indigo-300 text-white rounded-lg disabled:opacity-50 hover:bg-indigo-700"
       >
         Previous
-      </button>
-      <span className="px-3 py-1 bg-yellow-400 text-blue-900 rounded-lg">
+      </motion.button>
+      <span className="px-4 py-1 bg-gradient-to-tr from-yellow-600 to-yellow-300 text-indigo-900 rounded-lg font-medium">
         {currentPage} / {totalPages}
       </span>
-      <button
+      <motion.button
         onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
         disabled={currentPage === totalPages}
-        className="px-3 py-1 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+        whileHover={{ scale: 1.05 }}
+        className="px-3 py-1 bg-gradient-to-tr from-indigo-900 to-indigo-400 text-white rounded-lg disabled:opacity-50 hover:bg-indigo-700"
       >
         Next
-      </button>
+      </motion.button>
     </div>
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-indigo-100 p-4">
-      {/* Confirmation Modal */}
-      {modal.isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-        >
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full"
-          >
-            <h3 className="text-lg font-semibold text-blue-900 mb-4">
-              Confirm Deletion
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete{" "}
-              {modal.type === "users"
-                ? "the selected user(s)"
-                : "the selected content item(s)"}
-              ? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={() => setModal({ isOpen: false, type: "", ids: [] })}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <motion.button
-                onClick={() =>
-                  modal.type === "users"
-                    ? handleDeleteUser(modal.ids)
-                    : handleDeleteContent(modal.ids)
-                }
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-              >
-                Delete
-              </motion.button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
+    <div className="min-h-screen bg-gray-50 p-4 flex">
+      {/* Sidebar */}
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.8 }}
-        className="grid grid-cols-1 md:grid-cols-2 max-w-6xl w-full bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl overflow-hidden"
+        initial={{ x: -100 }}
+        animate={{ x: isSidebarOpen ? 0 : 0 }}
+        transition={{ type: "spring", stiffness: 100, damping: 15 }}
+        // className="fixed lg:static w-72 bg-gradient-to-b from-indigo-900 to-indigo-950 text-white h-screen p-6 z-50 shadow-2xl lg:shadow-none"
+        role="navigation"
+        aria-label="Admin Dashboard Sidebar"
+        className={`lg:w-56 bg-blue-50/80 bg-gradient-to-b backdrop-blur-sm p-4 pt-0 rounded-xl shadow-2xl h-screen overflow-y-auto scrollbar-custom lg:sticky lg:top-4 ${
+          isSidebarOpen ? "block" : "hidden lg:block"
+        }`}
       >
-        {/* Image Section */}
-        <div className="relative hidden md:block">
-          <img
-            src="https://images.unsplash.com/photo-1646705193300-aa2815a15bcd?w=1200&auto=format&fit=crop&q=80&ixlib=rb-4.1.0"
-            alt="Administrative Workspace"
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.target.src = AdminIllustration;
-            }}
-          />
-          <div className="absolute inset-0 bg-blue-900/30"></div>
-          <div className="absolute bottom-4 left-4 text-white">
-            <h3 className="text-xl font-semibold">Admin Control</h3>
-            <p className="text-sm opacity-80">
-              Manage Users & Content Seamlessly
-            </p>
+        {/* Header */}
+
+        <div className="flex items-center justify-between mb-8 sticky top-0 bg-blue-50/80 backdrop-blur-sm pt-4  z-10">
+          <div className="flex items-center">
+            <img
+              src={AdminIllustration}
+              alt="Admin Panel Logo"
+              className="h-10 mr-3 rounded-full "
+              onError={(e) => {
+                e.target.src =
+                  "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80";
+              }}
+            />
+            <h2 className="text-lg font-semibold tracking-tight text-blue-900">
+              Admin Hub
+            </h2>
           </div>
         </div>
-        {/* Dashboard Section */}
-        <div className="p-8 flex flex-col relative">
-          <img
-            src={AdminIllustration}
-            alt="Admin Illustration"
-            className="absolute top-0 right-0 h-24 opacity-10 object-contain"
-            onError={(e) => {
-              e.target.src =
-                "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80";
-            }}
-          />
-          <h1 className="text-2xl font-bold text-blue-900 mb-6 text-center">
+
+        {/* Navigation */}
+        <nav className="space-y-1">
+          {[
+            {
+              id: "users",
+              label: "Users",
+              icon: <UserSvg className="h-6 w-6" />,
+            },
+            {
+              id: "content",
+              label: "Content",
+              icon: <ContentSvg className="h-6 w-6" />,
+            },
+            {
+              id: "deletedContent",
+              label: "Deleted Content",
+              icon: <HistorySvg className="h-6 w-6" />,
+            },
+            {
+              id: "roleChanges",
+              label: "Role Changes",
+              icon: <RoleSvg className="h-6 w-6" />,
+            },
+          ].map((tab) => (
+            <motion.button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setIsSidebarOpen(false);
+              }}
+              whileHover={{ x: 5 }}
+              whileTap={{ scale: 0.95 }}
+              className={`w-full flex items-center p-4 rounded-xl transition-all duration-200 ${
+                activeTab === tab.id
+                  ? " bg-gradient-to-tr from-yellow-600 to-yellow-400 rounded-full text-indigo-900 font-semibold shadow-md shadow-yellow-500/20"
+                  : "cursor-pointer text-gray-700 hover:bg-indigo-800/20 hover:text-gray-600"
+              } `}
+              aria-current={activeTab === tab.id ? "page" : undefined}
+              role="menuitem"
+            >
+              <motion.div
+                initial={{ scale: 1 }}
+                whileHover={{ scale: 1.2 }}
+                className="flex-shrink-0"
+              >
+                {tab.icon}
+              </motion.div>
+              <span className="ml-4 text-sm">{tab.label}</span>
+            </motion.button>
+          ))}
+        </nav>
+      </motion.div>
+
+      {/* Mobile Sidebar Toggle */}
+      <div className="lg:hidden mb-4">
+        <ToggleButton
+          onClick={toggleSidebar}
+          aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 p-6 lg:p-8">
+        {/* Mobile Sidebar Toggle */}
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className=" max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-6"
+        >
+          <h1 className="text-xl font-bold text-indigo-900 mb-6">
             Admin Dashboard
           </h1>
           {error && (
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-red-500 mb-4 text-center text-sm bg-red-100/50 p-2 rounded"
+              className="text-red-600 bg-red-100 p-3 rounded-lg mb-4"
             >
               {error}
             </motion.p>
           )}
+
           {isLoading ? (
-            <div className="text-center text-gray-600">
+            <div className="text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-yellow-400"></div>
-              <p className="mt-2">Loading data...</p>
+              <p className="mt-2 text-gray-600">Loading...</p>
             </div>
           ) : (
             <>
-              <h2 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
-                <svg
-                  className="h-6 w-6 mr-2"
-                  xmlns="http://www.w3.org/2000/svg"
-                  height="24px"
-                  viewBox="0 -960 960 960"
-                  width="24px"
-                  fill="currentColor"
-                >
-                  <path d="M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440q66 0 130 15.5T616-378q29 15 46.5 43.5T680-272v112H40Zm720 0v-120q0-44-24.5-84.5T666-434q51 6 96 20.5t84 35.5q36 20 55 44.5t19 53.5v120H760ZM360-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47Zm400-160q0 66-47 113t-113 47q-11 0-28-2.5t-28-5.5q27-32 41.5-71t14.5-81q0-42-14.5-81T544-792q14-5 28-6.5t28-1.5q66 0 113 47t47 113ZM120-240h480v-32q0-11-5.5-20T580-306q-54-27-109-40.5T360-360q-56 0-111 13.5T140-306q-9 5-14.5 14t-5.5 20v32Zm240-320q33 0 56.5-23.5T440-640q0-33-23.5-56.5T360-720q-33 0-56.5 23.5T280-640q0 33 23.5 56.5T360-560Zm0 320Zm0-400Z" />
-                </svg>
-                Manage Users
-              </h2>
-
-              <div className="mb-4 flex justify-between items-center">
-              
-                <SearchInput value={userSearch}
+              {/* Search and Filters */}
+              {(activeTab === "users" || activeTab === "content") && (
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+                  <SearchInput
+                    value={activeTab === "users" ? userSearch : contentSearch}
                     onChange={(e) => {
-                      setUserSearch(e.target.value);
-                      setUserPage(1);
+                      if (activeTab === "users") {
+                        setUserSearch(e.target.value);
+                        setUserPage(1);
+                      } else if (activeTab === "content") {
+                        setContentSearch(e.target.value);
+                        setContentPage(1);
+                      }
                     }}
-                    placeholder="Search by name or email" />
-                {selectedUsers.length > 0 && (
-                  <motion.button
-                    onClick={() =>
-                      setModal({
-                        isOpen: true,
-                        type: "users",
-                        ids: selectedUsers,
-                      })
+                    placeholder={
+                      activeTab === "users"
+                        ? "Search by name or email"
+                        : "Search by title or creator"
                     }
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center"
-                  >
-                    <svg
-                      className="h-4 w-4 mr-1"
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="24px"
-                      viewBox="0 -960 960 960"
-                      width="24px"
-                      fill="currentColor"
-                    >
-                      <path d="m376-300 104-104 104 104 56-56-104-104 104-104-56-56-104 104-104-104-56 56 104 104-104 104 56 56Zm-96 180q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520Zm-400 0v520-520Z" />
-                    </svg>
-                    Delete Selected ({selectedUsers.length})
-                  </motion.button>
-                )}
-              </div>
-              <div className="mb-8 overflow-x-auto">
-                {paginatedUsers.length === 0 ? (
-                  <p className="text-gray-600 text-center">
-                    {userSearch
-                      ? "No users match your search."
-                      : "No users found."}
-                  </p>
-                ) : (
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 text-sm">
-                        <th className="p-3">
-                          <input
-                            type="checkbox"
-                            checked={
-                              selectedUsers.length === filteredUsers.length
-                            }
-                            onChange={(e) =>
-                              setSelectedUsers(
-                                e.target.checked
-                                  ? filteredUsers.map((u) => u.userId)
-                                  : []
-                              )
-                            }
-                            className="h-4 w-4 text-yellow-400"
-                          />
-                        </th>
-                        {["name", "email", "role"].map((field) => (
-                          <th
-                            key={field}
-                            className="p-3 text-left text-blue-900 font-semibold cursor-pointer"
-                            onClick={() => handleSort("users", field)}
-                          >
-                            <div className="flex items-center">
-                              {field.charAt(0).toUpperCase() + field.slice(1)}
-                              {userSort.field === field &&
-                                (userSort.direction === "asc" ? (
-                                  <svg
-                                    className="h-4 w-4 ml-1"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    height="24px"
-                                    viewBox="0 -960 960 960"
-                                    width="24px"
-                                    fill="currentColor"
-                                  >
-                                    <path d="M480-528 296-344l-56-56 240-240 240 240-56 56-184-184Z" />
-                                  </svg>
-                                ) : (
-                                  <svg
-                                    className="h-4 w-4 ml-1"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    height="24px"
-                                    viewBox="0 -960 960 960"
-                                    width="24px"
-                                    fill="currentColor"
-                                  >
-                                    <path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" />
-                                  </svg>
-                                ))}
-                            </div>
-                          </th>
-                        ))}
-                        <th className="p-3 text-left text-blue-900 font-semibold">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedUsers.map((user, index) => (
-                        <motion.tr
-                          key={user.userId}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3, delay: index * 0.1 }}
-                          className="border-b text-xs hover:bg-gray-50"
-                        >
-                          <td className="p-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedUsers.includes(user.userId)}
-                              onChange={() =>
-                                setSelectedUsers((prev) =>
-                                  prev.includes(user.userId)
-                                    ? prev.filter((id) => id !== user.userId)
-                                    : [...prev, user.userId]
-                                )
-                              }
-                              className="h-4 w-4 text-yellow-400"
-                            />
-                          </td>
-                          <td className="p-3 text-gray-700 capitalize  ">
-                            {user.name}
-                          </td>
-                          <td className="p-3 text-gray-700">{user.email}</td>
-                          <td className="p-3 text-gray-700 capitalize">
-                            {user.role}
-                          </td>
-                          <td className="p-3 flex space-x-2">
-                            <select
-                              value={user.role}
-                              onChange={(e) =>
-                                handleUpdateRole(user.userId, e.target.value)
-                              }
-                              disabled={actionLoading[`role-${user.userId}`]}
-                              className="p-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                            >
-                              <option value="student">Student</option>
-                              <option value="educator">Educator</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                            <motion.button
-                              onClick={() =>
-                                setModal({
-                                  isOpen: true,
-                                  type: "users",
-                                  ids: [user.userId],
-                                })
-                              }
-                              disabled={actionLoading[`user-${user.userId}`]}
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              className={`flex items-center px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition ${
-                                actionLoading[`user-${user.userId}`]
-                                  ? "opacity-60 cursor-not-allowed"
-                                  : ""
-                              }`}
-                            >
-                              <svg
-                                className="h-4 w-4 "
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="24px"
-                                viewBox="0 -960 960 960"
-                                width="24px"
-                                fill="currentColor"
-                              >
-                                <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" />
-                              </svg>
-                              {actionLoading[`user-${user.userId}`]
-                                ? "Deleting..."
-                                : ""}
-                            </motion.button>
-                          </td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                {totalUserPages > 1 && (
-                  <Pagination
-                    currentPage={userPage}
-                    totalPages={totalUserPages}
-                    setPage={setUserPage}
+                    className="w-full sm:w-64"
                   />
-                )}
-              </div>
-              {/* Content Section */}
-              <h2 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
-                <svg
-                  className="h-6 w-6 mr-2"
-                  xmlns="http://www.w3.org/2000/svg"
-                  height="24px"
-                  viewBox="0 -960 960 960"
-                  width="24px"
-                  fill="currentColor"
-                >
-                  <path d="M200-200h560v-367L567-760H200v560Zm0 80q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h400l240 240v400q0 33-23.5 56.5T760-120H200Zm80-160h400v-80H280v80Zm0-160h400v-80H280v80Zm0-160h280v-80H280v80Zm-80 400v-560 560Z" />
-                </svg>
-                Manage Content
-              </h2>
-              <div className="mb-4 flex justify-between items-center">
-               
-                <SearchInput
-                  value={contentSearch}
-                  onChange={(e) => {
-                    setContentSearch(e.target.value);
-                    setContentPage(1);
-                  }}
-                  placeholder="Search by title or creator"
-                />
-                {selectedContent.length > 0 && (
-                  <motion.button
-                    onClick={() =>
-                      setModal({
-                        isOpen: true,
-                        type: "content",
-                        ids: selectedContent,
-                      })
-                    }
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center"
-                  >
-                    <svg
-                      className="h-4 w-4 mr-1"
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="24px"
-                      viewBox="0 -960 960 960"
-                      width="24px"
-                      fill="currentColor"
+                  {(activeTab === "users" ? selectedUsers : selectedContentIds)
+                    .length > 0 && (
+                    <motion.button
+                      onClick={() =>
+                        setModal({
+                          isOpen: true,
+                          type: activeTab,
+                          data:
+                            activeTab === "users"
+                              ? selectedUsers
+                              : selectedContentIds,
+                        })
+                      }
+                      whileHover={{ scale: 1.05 }}
+                      className="mt-4 sm:mt-0 px-4 py-2 bg-gradient-to-tr from-red-900 to-red-500 text-white rounded-full flex items-center"
                     >
-                      <path d="m376-300 104-104 104 104 56-56-104-104 104-104-56-56-104 104-104-104-56 56 104 104-104 104 56 56Zm-96 180q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520Zm-400 0v520-520Z" />
-                    </svg>
-                    Delete Selected ({selectedContent.length})
-                  </motion.button>
-                )}
-              </div>
-              <div className="overflow-x-auto">
-                {paginatedContent.length === 0 ? (
-                  <p className="text-gray-600 text-center">
-                    {contentSearch
-                      ? "No content matches your search."
-                      : "No content found."}
-                  </p>
-                ) : (
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 ">
-                        <th className="p-3">
-                          <input
-                            type="checkbox"
-                            checked={
-                              selectedContent.length === filteredContent.length
-                            }
-                            onChange={(e) =>
-                              setSelectedContent(
-                                e.target.checked
-                                  ? filteredContent.map((c) => c.contentId)
-                                  : []
-                              )
-                            }
-                            className="h-4 w-4 text-yellow-400"
-                          />
-                        </th>
-                        {["title", "type", "createdBy"].map((field) => (
-                          <th
-                            key={field}
-                            className="p-3 text-left text-blue-900 font-semibold cursor-pointer"
-                            onClick={() => handleSort("content", field)}
-                          >
-                            <div className="flex items-center">
-                              {field === "createdBy"
-                                ? "Created By"
-                                : field.charAt(0).toUpperCase() +
-                                  field.slice(1)}
-                              {contentSort.field === field &&
-                                (contentSort.direction === "asc" ? (
+                      <svg
+                        className="h-4 w-4 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                      Delete Selected (
+                      {
+                        (activeTab === "users"
+                          ? selectedUsers
+                          : selectedContentIds
+                        ).length
+                      }
+                      )
+                    </motion.button>
+                  )}
+                </div>
+              )}
+
+              {/* Users Table */}
+              {activeTab === "users" && (
+                <>
+                  {paginatedUsers.length === 0 ? (
+                    <p className="text-gray-600 text-center">
+                      {userSearch
+                        ? "No users match your search."
+                        : "No users found."}
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gradient-to-l from-indigo-200 to-indigo-400 text-indigo-900 rounded-lg">
+                            <th className="p-4">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selectedUsers.length === filteredUsers.length
+                                }
+                                onChange={(e) =>
+                                  setSelectedUsers(
+                                    e.target.checked
+                                      ? filteredUsers.map((u) => u.userId)
+                                      : []
+                                  )
+                                }
+                                className="h-4 w-4 text-yellow-400 rounded"
+                              />
+                            </th>
+                            {["name", "email", "role"].map((field) => (
+                              <th
+                                key={field}
+                                className="p-4 text-left font-semibold cursor-pointer"
+                                onClick={() => handleSort("users", field)}
+                              >
+                                <div className="flex items-center">
+                                  {field.charAt(0).toUpperCase() +
+                                    field.slice(1)}
+                                  {userSort.field === field && (
                                     <svg
-                                    className="h-4 w-4 ml-1"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    height="24px"
-                                    viewBox="0 -960 960 960"
-                                    width="24px"
-                                    fill="currentColor"
-                                  >
-                                    <path d="M480-528 296-344l-56-56 240-240 240 240-56 56-184-184Z" />
-                                  </svg>
-                                ) : (
-                                  <svg
-                                    className="h-4 w-4 ml-1"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    height="24px"
-                                    viewBox="0 -960 960 960"
-                                    width="24px"
-                                    fill="currentColor"
-                                  >
-                                    <path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" />
-                                  </svg>
-                                ))}
-                            </div>
-                          </th>
-                        ))}
-                        <th className="p-3 text-left text-blue-900 font-semibold">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedContent.map((item, index) => (
-                        <motion.tr
-                          key={item.contentId}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3, delay: index * 0.1 }}
-                          className="border-b hover:bg-gray-50"
-                        >
-                          <td className="p-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedContent.includes(item.contentId)}
-                              onChange={() =>
-                                setSelectedContent((prev) =>
-                                  prev.includes(item.contentId)
-                                    ? prev.filter((id) => id !== item.contentId)
-                                    : [...prev, item.contentId]
-                                )
-                              }
-                              className="h-4 w-4 text-yellow-400"
-                            />
-                          </td>
-                          <td className="p-3 text-gray-600 capitalize">
-                            {item.title}
-                          </td>
-                          <td className="p-3 text-gray-600 capitalize">
-                            {item.type}
-                          </td>
-                          <td className="p-3 text-gray-600 capitalize">
-                            {item.createdBy?.name || "Unknown"}
-                          </td>
-                          <td className="p-3">
-                            <motion.button
-                              onClick={() =>
-                                setModal({
-                                  isOpen: true,
-                                  type: "content",
-                                  ids: [item.contentId],
-                                })
-                              }
-                              disabled={
-                                actionLoading[`content-${item.contentId}`]
-                              }
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              className={`flex items-center px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition ${
-                                actionLoading[`content-${item.contentId}`]
-                                  ? "opacity-60 cursor-not-allowed"
-                                  : ""
-                              }`}
+                                      className="h-4 w-4 ml-1"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d={
+                                          userSort.direction === "asc"
+                                            ? "M5 15l7-7 7 7"
+                                            : "M19 9l-7 7-7-7"
+                                        }
+                                      />
+                                    </svg>
+                                  )}
+                                </div>
+                              </th>
+                            ))}
+                            <th className="p-4 text-left font-semibold">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedUsers.map((user, index) => (
+                            <motion.tr
+                              key={user.userId}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="border-b hover:bg-gray-50"
                             >
-                              <svg
-                                className="h-4 w-4"
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="24px"
-                                viewBox="0 -960 960 960"
-                                width="24px"
-                                fill="currentColor"
+                              <td className="p-4">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedUsers.includes(user.userId)}
+                                  onChange={() =>
+                                    setSelectedUsers((prev) =>
+                                      prev.includes(user.userId)
+                                        ? prev.filter(
+                                            (id) => id !== user.userId
+                                          )
+                                        : [...prev, user.userId]
+                                    )
+                                  }
+                                  className="h-4 w-4 text-yellow-400 rounded"
+                                />
+                              </td>
+                              <td className="p-4 text-sm capitalize text-left text-gray-700">
+                                {user.name}
+                              </td>
+                              <td className="p-4 text-sm text-left text-gray-700">
+                                {user.email}
+                              </td>
+                              <td className="">
+                                <select
+                                  value={user.role}
+                                  onChange={(e) =>
+                                    handleUpdateRole(
+                                      user.userId,
+                                      e.target.value
+                                    )
+                                  }
+                                  disabled={
+                                    actionLoading[`role-${user.userId}`] ||
+                                    user.userId === currentUserId
+                                  }
+                                  className="p-2 text-gray-700 text-left text-xs border  rounded-lg "
+                                >
+                                  {["student", "educator", "admin"].map(
+                                    (role) => (
+                                      <option key={role} value={role}>
+                                        {role.charAt(0).toUpperCase() +
+                                          role.slice(1)}
+                                      </option>
+                                    )
+                                  )}
+                                </select>
+                              </td>
+                              <td className="p-4 flex space-x-2">
+                                <motion.button
+                                  onClick={() =>
+                                    setModal({
+                                      isOpen: true,
+                                      type: "users",
+                                      data: [user.userId],
+                                    })
+                                  }
+                                  disabled={
+                                    actionLoading[`user-${user.userId}`] ||
+                                    user.userId === currentUserId
+                                  }
+                                  whileHover={{ scale: 1.05 }}
+                                  className="px-3 text-sm py-1 bg-gradient-to-tr from-red-900 to-red-500 text-white rounded-lg flex items-center"
+                                >
+                                  <svg
+                                    className="h-4 w-4 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                  {actionLoading[`user-${user.userId}`]
+                                    ? "Deleting..."
+                                    : "Delete"}
+                                </motion.button>
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {totalUserPages > 1 && (
+                        <Pagination
+                          currentPage={userPage}
+                          totalPages={totalUserPages}
+                          setPage={setUserPage}
+                        />
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Content Table */}
+              {activeTab === "content" && (
+                <>
+                  {paginatedContent.length === 0 ? (
+                    <p className="text-gray-600 text-center">
+                      {contentSearch
+                        ? "No content matches your search."
+                        : "No content found."}
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gradient-to-l from-indigo-200 to-indigo-400 text-indigo-900">
+                            <th className="p-4">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selectedContentIds.length ===
+                                  filteredContent.length
+                                }
+                                onChange={(e) =>
+                                  setSelectedContentIds(
+                                    e.target.checked
+                                      ? filteredContent.map((c) => c.contentId)
+                                      : []
+                                  )
+                                }
+                                className="h-4 w-4 text-yellow-400 rounded"
+                              />
+                            </th>
+                            {["title", "type", "createdBy"].map((field) => (
+                              <th
+                                key={field}
+                                className="p-4 text-left font-semibold cursor-pointer"
+                                onClick={() => handleSort("content", field)}
                               >
-                                <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" />
-                              </svg>
-                              {actionLoading[`content-${item.contentId}`]
-                                ? "Deleting..."
-                                : ""}
-                            </motion.button>
-                          </td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                {totalContentPages > 1 && (
-                  <Pagination
-                    currentPage={contentPage}
-                    totalPages={totalContentPages}
-                    setPage={setContentPage}
-                  />
-                )}
-              </div>
+                                <div className="flex items-center">
+                                  {field === "createdBy"
+                                    ? "Created By"
+                                    : field.charAt(0).toUpperCase() +
+                                      field.slice(1)}
+                                  {contentSort.field === field && (
+                                    <svg
+                                      className="h-4 w-4 ml-1"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d={
+                                          contentSort.direction === "asc"
+                                            ? "M5 15l7-7 7 7"
+                                            : "M19 9l-7 7-7-7"
+                                        }
+                                      />
+                                    </svg>
+                                  )}
+                                </div>
+                              </th>
+                            ))}
+                            <th className="p-4 text-left font-semibold">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedContent.map((item, index) => (
+                            <motion.tr
+                              key={item.contentId}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="border-b hover:bg-gray-50"
+                            >
+                              <td className="p-4">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedContentIds.includes(
+                                    item.contentId
+                                  )}
+                                  onChange={() =>
+                                    setSelectedContentIds((prev) =>
+                                      prev.includes(item.contentId)
+                                        ? prev.filter(
+                                            (id) => id !== item.contentId
+                                          )
+                                        : [...prev, item.contentId]
+                                    )
+                                  }
+                                  className="h-4 w-4 text-yellow-400 rounded"
+                                />
+                              </td>
+                              <td className="p-1 text-sm capitalize text-left text-gray-700">
+                                {item.title}
+                              </td>
+                              <td className="p-1 text-sm capitalize text-left text-gray-700">
+                                {item.type}
+                              </td>
+                              <td className="p-1 text-sm capitalize text-left text-gray-700">
+                                {item.createdBy?.name || "Unknown"}
+                              </td>
+                              <td className="p-4 flex space-x-2">
+                                <motion.button
+                                  onClick={() =>
+                                    handleViewContent(item.contentId)
+                                  }
+                                  whileHover={{ scale: 1.05 }}
+                                  className="px-3 py-1 bg-gradient-to-tr from-indigo-900 to-indigo-400 text-white text-xs rounded-lg shadow shadow-lg flex items-center"
+                                >
+                                  <svg
+                                    className="h-3 w-3 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                  </svg>
+                                  View
+                                </motion.button>
+                                <motion.button
+                                  onClick={() =>
+                                    setModal({
+                                      isOpen: true,
+                                      type: "content",
+                                      data: [item.contentId],
+                                    })
+                                  }
+                                  disabled={
+                                    actionLoading[`content-${item.contentId}`]
+                                  }
+                                  whileHover={{ scale: 1.05 }}
+                                  className="px-3 text-sm py-1 bg-gradient-to-tr from-red-800 to-red-400 text-white rounded-lg flex items-center"
+                                >
+                                  <svg
+                                    className="h-3 w-3 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                  {actionLoading[`content-${item.contentId}`]
+                                    ? "Deleting..."
+                                    : "Delete"}
+                                </motion.button>
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {totalContentPages > 1 && (
+                        <Pagination
+                          currentPage={contentPage}
+                          totalPages={totalContentPages}
+                          setPage={setContentPage}
+                        />
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Deleted Content History */}
+              {activeTab === "deletedContent" && (
+                <>
+                  {paginatedDeletedContent.length === 0 ? (
+                    <p className="text-gray-600 text-center">
+                      No deleted content found.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gradient-to-l from-indigo-200 to-indigo-400 text-indigo-900">
+                            <th className="p-4 text-left font-semibold">
+                              Title
+                            </th>
+                            <th className="p-4 text-left font-semibold">
+                              Type
+                            </th>
+                            <th className="p-4 text-left font-semibold">
+                              Deleted By
+                            </th>
+                            <th className="p-4 text-left font-semibold">
+                              Deleted At
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedDeletedContent.map((item, index) => (
+                            <motion.tr
+                              key={item.contentId}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="border-b hover:bg-gray-50"
+                            >
+                              <td className="p-4 text-left text-sm text-gray-700">
+                                {item.title}
+                              </td>
+                              <td className="p-4 text-sm capitalize text-left text-gray-700">
+                                {item.type}
+                              </td>
+                              <td className="p-4 text-sm text-left capitalize text-gray-700">
+                                {item.deletedBy?.name || "Unknown"}
+                              </td>
+                              <td className="p-4 text-xs text-left text-gray-700">
+                                {new Date(item.deletedAt).toLocaleString()}
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {totalDeletedContentPages > 1 && (
+                        <Pagination
+                          currentPage={deletedContentPage}
+                          totalPages={totalDeletedContentPages}
+                          setPage={setDeletedContentPage}
+                        />
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Role Changes History */}
+              {activeTab === "roleChanges" && (
+                <>
+                  {paginatedRoleChanges.length === 0 ? (
+                    <p className="text-gray-600 text-center">
+                      No role changes found.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gradient-to-l from-indigo-200 to-indigo-400 text-indigo-900">
+                            <th className="p-4 text-left font-semibold">
+                              User
+                            </th>
+                            <th className="p-4 text-left font-semibold">
+                              Old Role
+                            </th>
+                            <th className="p-4 text-left font-semibold">
+                              New Role
+                            </th>
+                            <th className="p-4 text-left font-semibold">
+                              Changed By
+                            </th>
+                            <th className="p-4 text-left font-semibold">
+                              Changed At
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedRoleChanges.map((change, index) => (
+                            <motion.tr
+                              key={change._id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="border-b hover:bg-gray-50"
+                            >
+                              <td className="p-4 text-sm text-left text-gray-700">
+                                {change.userId?.name || "Deleted User"}
+                              </td>
+                              <td className="p-4 text-sm capitalize text-left text-gray-700">
+                                {change.oldRole}
+                              </td>
+                              <td className="p-4 text-sm capitalize text-left text-gray-700">
+                                {change.newRole}
+                              </td>
+                              <td className="p-4 text-sm capitalize text-left text-gray-700">
+                                {change.changedBy?.name || "Deleted User"}
+                              </td>
+                              <td className="p-4 text-xs text-left text-gray-700">
+                                {new Date(change.changedAt).toLocaleString()}
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {totalRoleChangesPages > 1 && (
+                        <Pagination
+                          currentPage={roleChangesPage}
+                          totalPages={totalRoleChangesPages}
+                          setPage={setRoleChangesPage}
+                        />
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
-        </div>
-      </motion.div>
+
+          {/* Modal */}
+          {modal.isOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            >
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="bg-white text-left p-6 rounded-lg shadow-xl max-w-md w-full"
+              >
+                {modal.type === "viewContent" && selectedContent ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-indigo-900 mb-4">
+                      Content Details
+                    </h3>
+                    <div className="text-gray-700 text-sm space-y-4">
+                      <p>
+                        <strong>Title:</strong> {selectedContent.title}
+                      </p>
+                      <p>
+                        <strong>Type:</strong> {selectedContent.type}
+                      </p>
+                      <p>
+                        <strong>Description:</strong>{" "}
+                        {selectedContent.description || "N/A"}
+                      </p>
+                      <p>
+                        <strong>Created By:</strong>{" "}
+                        {selectedContent.createdBy?.name || "Unknown"}
+                      </p>
+                      {selectedContent.fileUrl && (
+                        <div>
+                          <strong>File:</strong>
+                          {selectedContent.type === "image" ? (
+                            <img
+                              src={selectedContent.fileUrl}
+                              alt={selectedContent.title}
+                              className="mt-2 max-h-48 rounded"
+                            />
+                          ) : selectedContent.type === "video" ? (
+                            <video controls className="mt-2 max-h-48 rounded">
+                              <source
+                                src={selectedContent.fileUrl}
+                                type="video/mp4"
+                              />
+                              Your browser does not support the video tag.
+                            </video>
+                          ) : (
+                            <a
+                              href={selectedContent.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:underline"
+                            >
+                              View File
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-end mt-6">
+                      <motion.button
+                        onClick={() => {
+                          setModal({ isOpen: false, type: "", data: null });
+                          setSelectedContent(null);
+                        }}
+                        whileHover={{ scale: 1.05 }}
+                        className="px-4 py-2 bg-gradient-to-tr from-gray-900 to-gray-400 text-white rounded-lg"
+                      >
+                        Close
+                      </motion.button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold text-indigo-900 mb-4">
+                      Confirm Deletion
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      Are you sure you want to delete{" "}
+                      {modal.type === "users"
+                        ? "the selected user(s)"
+                        : "the selected content item(s)"}
+                      ? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end space-x-4">
+                      <motion.button
+                        onClick={() =>
+                          setModal({ isOpen: false, type: "", data: null })
+                        }
+                        whileHover={{ scale: 1.05 }}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg"
+                      >
+                        Cancel
+                      </motion.button>
+                      <motion.button
+                        onClick={() =>
+                          modal.type === "users"
+                            ? handleDeleteUser(modal.data)
+                            : handleDeleteContent(modal.data)
+                        }
+                        whileHover={{ scale: 1.05 }}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg"
+                      >
+                        Delete
+                      </motion.button>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 };

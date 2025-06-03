@@ -588,7 +588,7 @@ const EducatorDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex-1 lg:max-w-2xl bg-white/80 backdrop-blur-sm p-6 pt-0 rounded-xl shadow-lg h-[80vh] overflow-y-auto scrollbar-custom relative"
+          className="flex-1 lg:max-w-2xl bg-white/80 backdrop-blur-sm p-6 pt-0 rounded-xl shadow-lg h-screen overflow-y-auto scrollbar-custom relative"
         >
           <div className="relative z-10">
             {/* Middle bar header */}
