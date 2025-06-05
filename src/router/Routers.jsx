@@ -16,9 +16,6 @@ export default function Routers() {
       <Route path="/home" element={<Hero />} />
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
-      {/* <Route path="/student" element={<StudentPortal />} /> */}
-      {/* <Route path="/educator" element={<EducatorDashboard />} /> */}
-      {/* <Route path="/admin" element={<AdminDashboard />} /> */}
       <Route
         path="/student"
         element={
